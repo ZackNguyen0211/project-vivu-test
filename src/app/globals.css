@@ -1,0 +1,58 @@
+/* src/app/globals.css */
+@import "tailwindcss";
+
+@theme {
+  --color-surface: #f8f9ff;
+  --color-surface-dim: #c4dcff;
+  --color-surface-bright: #f8f9ff;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #eff4ff;
+  --color-surface-container: #e6eeff;
+  --color-surface-container-high: #dce9ff;
+  --color-surface-container-highest: #d3e4ff;
+  --color-on-surface: #001c38;
+  --color-on-surface-variant: #44474c;
+  --color-inverse-surface: #0e3255;
+  --color-inverse-on-surface: #eaf1ff;
+  --color-outline: #75777d;
+  --color-outline-variant: #c5c6cd;
+  --color-surface-tint: #525f75;
+  --color-primary: #000000;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #0e1c2f;
+  --color-on-primary-container: #77849c;
+  --color-inverse-primary: #bac7e1;
+  --color-secondary: #875200;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #fd9e00;
+  --color-on-secondary-container: #653c00;
+  --color-secondary-fixed: #ffddba;
+  --color-secondary-fixed-dim: #ffb866;
+  --color-on-secondary-fixed: #2b1700;
+  --color-on-secondary-fixed-variant: #673d00;
+  --color-tertiary: #000000;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #001f27;
+  --color-on-tertiary-container: #0090ad;
+  --color-tertiary-fixed: #b3ebff;
+  --color-tertiary-fixed-dim: #4cd6fb;
+  --color-on-tertiary-fixed: #001f27;
+  --color-on-tertiary-fixed-variant: #004e5f;
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+
+  --font-display: var(--font-plus-jakarta), sans-serif;
+  --font-sans: var(--font-inter), sans-serif;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  display: inline-block;
+  line-height: 1;
+}
+
+.material-symbols-filled {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
