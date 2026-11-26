@@ -12,7 +12,7 @@ const STEPS = [
   { step: 1, label: "1. Chọn chuyến xe", href: "/search" },
   { step: 2, label: "2. Chọn ghế & Điểm đón", href: "/trips/trip-futa-2200/seats" },
   { step: 3, label: "3. Thanh toán giữ chỗ", href: "/checkout" },
-  { step: 4, label: "4. Vé điện tử QR", href: "/bookings/VVC-261118-8892" },
+  { step: 4, label: "4. Vé điện tử QR", href: "/bookings/lookup" },
 ];
 
 export default function BookingStepHeader({

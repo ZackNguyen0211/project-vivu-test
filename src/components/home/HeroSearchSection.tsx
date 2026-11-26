@@ -1,7 +1,7 @@
 // src/components/home/HeroSearchSection.tsx
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useId, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { LocationItem } from "@/types/home";
 
@@ -9,19 +9,461 @@ interface HeroSearchSectionProps {
   locations: LocationItem[];
 }
 
+interface SearchDropdownOption {
+  value: string;
+  label: string;
+  description?: string;
+}
+
+interface SearchDropdownProps {
+  label: string;
+  icon: string;
+  iconClassName: string;
+  value: string;
+  description: string;
+  options: SearchDropdownOption[];
+  onChange: (value: string) => void;
+}
+
+function parseIsoDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return year && month && day
+    ? new Date(year, month - 1, day)
+    : new Date(2000, 0, 1);
+}
+
+function formatIsoDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+interface DatePickerProps {
+  value: string;
+  minDate: string;
+  onChange: (value: string) => void;
+}
+
+function DatePicker({ value, minDate, onChange }: DatePickerProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [openUp, setOpenUp] = useState(false);
+  const [calendarMaxHeight, setCalendarMaxHeight] = useState<number>();
+  const [visibleMonth, setVisibleMonth] = useState(() => {
+    const initialDate = parseIsoDate(value || minDate);
+    return new Date(initialDate.getFullYear(), initialDate.getMonth(), 1);
+  });
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const selectedDate = value ? parseIsoDate(value) : null;
+  const monthLabel = new Intl.DateTimeFormat("vi-VN", {
+    month: "long",
+    year: "numeric",
+  }).format(visibleMonth);
+  const selectedLabel = selectedDate
+    ? new Intl.DateTimeFormat("vi-VN", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }).format(selectedDate)
+    : "Chọn ngày khởi hành";
+  const selectedWeekday = selectedDate
+    ? new Intl.DateTimeFormat("vi-VN", { weekday: "long" }).format(selectedDate)
+    : "Mở bán vé trực tuyến";
+
+  const firstDayOffset = (visibleMonth.getDay() + 6) % 7;
+  const daysInMonth = new Date(
+    visibleMonth.getFullYear(),
+    visibleMonth.getMonth() + 1,
+    0
+  ).getDate();
+  const cellCount = Math.ceil((firstDayOffset + daysInMonth) / 7) * 7;
+  const calendarDays = Array.from({ length: cellCount }, (_, index) => {
+    const day = index - firstDayOffset + 1;
+    return day > 0 && day <= daysInMonth ? day : null;
+  });
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [isOpen]);
+
+  const openCalendar = () => {
+    const dateToShow = parseIsoDate(value || minDate);
+    const pickerBounds = rootRef.current?.getBoundingClientRect();
+    if (pickerBounds) {
+      const spaceAbove = pickerBounds.top - 8;
+      const spaceBelow = window.innerHeight - pickerBounds.bottom - 8;
+      const shouldOpenUp = spaceBelow < 320 && spaceAbove > spaceBelow;
+      setOpenUp(shouldOpenUp);
+      setCalendarMaxHeight(Math.max(160, shouldOpenUp ? spaceAbove : spaceBelow));
+    }
+    setVisibleMonth(new Date(dateToShow.getFullYear(), dateToShow.getMonth(), 1));
+    setIsOpen((open) => !open);
+  };
+
+  const moveMonth = (amount: number) => {
+    setVisibleMonth(
+      (month) => new Date(month.getFullYear(), month.getMonth() + amount, 1)
+    );
+  };
+
+  const selectDay = (day: number) => {
+    const selected = new Date(
+      visibleMonth.getFullYear(),
+      visibleMonth.getMonth(),
+      day
+    );
+    onChange(formatIsoDate(selected));
+    setIsOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape" && isOpen) {
+      event.preventDefault();
+      setIsOpen(false);
+      triggerRef.current?.focus();
+    }
+  };
+
+  return (
+    <div
+      ref={rootRef}
+      className={`relative ${isOpen ? "z-30" : ""}`}
+      onKeyDown={handleKeyDown}
+    >
+      <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">
+        Ngày đi
+      </label>
+      <div
+        className={`min-h-[68px] flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-surface-container-low transition-all ${
+          isOpen
+            ? "bg-surface-container-lowest ring-2 ring-secondary-container"
+            : "focus-within:bg-surface-container-lowest focus-within:ring-2 focus-within:ring-secondary-container"
+        }`}
+      >
+        <span className="material-symbols-outlined text-secondary shrink-0">
+          calendar_today
+        </span>
+        <button
+          ref={triggerRef}
+          type="button"
+          aria-label={`Ngày đi: ${selectedLabel}`}
+          aria-haspopup="dialog"
+          aria-expanded={isOpen}
+          onClick={openCalendar}
+          className="flex flex-1 min-w-0 items-center justify-between gap-2 text-left focus:outline-none"
+        >
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate font-display text-[15px] sm:text-base font-bold text-on-surface">
+              {selectedLabel}
+            </span>
+            <span className="block truncate text-[11px] sm:text-xs text-secondary font-medium">
+              {selectedWeekday}
+            </span>
+          </span>
+          <span
+            aria-hidden="true"
+            className={`material-symbols-outlined shrink-0 text-lg text-on-surface-variant transition-transform duration-200 ${
+              isOpen ? "rotate-180" : ""
+            }`}
+          >
+            expand_more
+          </span>
+        </button>
+      </div>
+
+      {isOpen && (
+        <div
+          role="dialog"
+          aria-label="Chọn ngày đi"
+          style={{ maxHeight: calendarMaxHeight }}
+          className={`dropdown-enter absolute inset-x-0 z-50 w-72 max-w-[calc(100vw-3rem)] overflow-y-auto rounded-xl border border-outline-variant/50 bg-surface-container-lowest p-2 shadow-xl sm:left-0 sm:right-auto ${
+            openUp ? "bottom-full mb-2" : "top-full mt-2"
+          }`}
+        >
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              aria-label="Tháng trước"
+              onClick={() => moveMonth(-1)}
+              disabled={
+                Boolean(minDate) &&
+                formatIsoDate(
+                  new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 0)
+                ) < minDate
+              }
+              className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <span className="material-symbols-outlined text-xl">chevron_left</span>
+            </button>
+            <span className="font-display text-sm font-bold text-on-surface">
+              {monthLabel}
+            </span>
+            <button
+              type="button"
+              aria-label="Tháng sau"
+              onClick={() => moveMonth(1)}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low"
+            >
+              <span className="material-symbols-outlined text-xl">chevron_right</span>
+            </button>
+          </div>
+
+          <div
+            role="grid"
+            aria-label={monthLabel}
+            className="grid grid-cols-7 gap-x-0.5 gap-y-0 text-center"
+          >
+            {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((weekday) => (
+              <span
+                key={weekday}
+                role="columnheader"
+                className="py-1 text-[10px] font-bold uppercase text-on-surface-variant"
+              >
+                {weekday}
+              </span>
+            ))}
+            {calendarDays.map((day, index) => {
+              if (day === null) {
+                return <span key={`empty-${index}`} role="gridcell" />;
+              }
+
+              const date = new Date(
+                visibleMonth.getFullYear(),
+                visibleMonth.getMonth(),
+                day
+              );
+              const isoDate = formatIsoDate(date);
+              const isSelected = isoDate === value;
+              const isDisabled = Boolean(minDate && isoDate < minDate);
+
+              return (
+                <span key={isoDate} role="gridcell">
+                  <button
+                    type="button"
+                    aria-label={new Intl.DateTimeFormat("vi-VN", {
+                      dateStyle: "full",
+                    }).format(date)}
+                    aria-pressed={isSelected}
+                    disabled={isDisabled}
+                    onClick={() => selectDay(day)}
+                    className={`h-8 w-8 rounded-full text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary-container disabled:cursor-not-allowed disabled:opacity-30 ${
+                      isSelected
+                        ? "bg-primary-container text-on-primary"
+                        : "text-on-surface hover:bg-surface-container-low"
+                    }`}
+                  >
+                    {day}
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SearchDropdown({
+  label,
+  icon,
+  iconClassName,
+  value,
+  description,
+  options,
+  onChange,
+}: SearchDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const id = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const selectedOption = options.find((option) => option.value === value);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [isOpen]);
+
+  const focusOption = (index: number) => {
+    const optionButtons =
+      listRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]');
+    optionButtons?.[index]?.focus();
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setIsOpen(false);
+      triggerRef.current?.focus();
+      return;
+    }
+
+    if (event.target === triggerRef.current) {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        setIsOpen(true);
+        window.requestAnimationFrame(() => {
+          focusOption(event.key === "ArrowDown" ? 0 : options.length - 1);
+        });
+      }
+      return;
+    }
+
+    if ((event.target as HTMLElement).getAttribute("role") !== "option") return;
+
+    const optionButtons = Array.from(
+      listRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? []
+    );
+    const currentIndex = optionButtons.indexOf(event.target as HTMLButtonElement);
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const direction = event.key === "ArrowDown" ? 1 : -1;
+      focusOption(
+        (currentIndex + direction + optionButtons.length) % optionButtons.length
+      );
+    } else if (event.key === "Home" || event.key === "End") {
+      event.preventDefault();
+      focusOption(event.key === "Home" ? 0 : optionButtons.length - 1);
+    }
+  };
+
+  return (
+    <div
+      ref={rootRef}
+      className={`relative ${isOpen ? "z-30" : ""}`}
+      onKeyDown={handleKeyDown}
+    >
+      <span className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">
+        {label}
+      </span>
+      <div
+        className={`min-h-[68px] flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-surface-container-low transition-all ${
+          isOpen
+            ? "bg-surface-container-lowest ring-2 ring-secondary-container"
+            : "focus-within:bg-surface-container-lowest focus-within:ring-2 focus-within:ring-secondary-container"
+        }`}
+      >
+        <span className={`material-symbols-outlined shrink-0 ${iconClassName}`}>
+          {icon}
+        </span>
+        <button
+          ref={triggerRef}
+          type="button"
+          aria-label={`${label}: ${selectedOption?.label ?? value}`}
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
+          aria-controls={`${id}-listbox`}
+          disabled={options.length === 0}
+          onClick={() => setIsOpen((open) => !open)}
+          className="flex flex-1 min-w-0 items-center justify-between gap-2 text-left focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate font-display text-[15px] sm:text-base font-bold text-on-surface">
+              {selectedOption?.label ?? value}
+            </span>
+            <span className="block truncate text-[11px] sm:text-xs text-on-surface-variant">
+              {description}
+            </span>
+          </span>
+          <span
+            aria-hidden="true"
+            className={`material-symbols-outlined shrink-0 text-lg text-on-surface-variant transition-transform duration-200 ${
+              isOpen ? "rotate-180" : ""
+            }`}
+          >
+            expand_more
+          </span>
+        </button>
+      </div>
+
+      {isOpen && (
+        <div
+          ref={listRef}
+          id={`${id}-listbox`}
+          role="listbox"
+          aria-label={label}
+          className="dropdown-enter absolute inset-x-0 top-full z-50 mt-2 max-h-64 overflow-y-auto rounded-xl border border-outline-variant/50 bg-surface-container-lowest p-1.5 shadow-xl"
+        >
+          {options.map((option) => {
+            const isSelected = option.value === value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                tabIndex={-1}
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                  triggerRef.current?.focus();
+                }}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors focus:bg-surface-container-low focus:outline-none ${
+                  isSelected
+                    ? "bg-surface-container-low text-primary-container"
+                    : "text-on-surface hover:bg-surface-container-low"
+                }`}
+              >
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-sm font-semibold">
+                    {option.label}
+                  </span>
+                  {option.description && (
+                    <span className="truncate text-xs text-on-surface-variant">
+                      {option.description}
+                    </span>
+                  )}
+                </span>
+                {isSelected && (
+                  <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined text-base text-secondary"
+                  >
+                    check
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function HeroSearchSection({ locations }: HeroSearchSectionProps) {
   const router = useRouter();
+  const defaultOrigin = locations[0]?.province_name || "TP. Hồ Chí Minh";
+  const defaultDestination =
+    locations.find((location) => location.province_name !== defaultOrigin)
+      ?.province_name || defaultOrigin;
 
   // 1. Khởi tạo rỗng để tránh gọi new Date() khi Next.js prerender trên server
   const [todayIso, setTodayIso] = useState<string>("");
   const [departureDate, setDepartureDate] = useState<string>("");
 
-  const [origin, setOrigin] = useState<string>(
-    locations[0]?.province_name || "TP. Hồ Chí Minh"
-  );
-  const [destination, setDestination] = useState<string>(
-    locations[1]?.province_name || "Đà Lạt (Lâm Đồng)"
-  );
+  const [origin, setOrigin] = useState<string>(defaultOrigin);
+  const [destination, setDestination] = useState<string>(defaultDestination);
   const [seatCount, setSeatCount] = useState<number>(1);
   const [rotation, setRotation] = useState<number>(0);
   const [activePreset, setActivePreset] = useState<string>("today");
@@ -50,6 +492,21 @@ export default function HeroSearchSection({ locations }: HeroSearchSectionProps)
       "Bến xe trung tâm / Điểm trả"
     );
   }, [locations, destination]);
+
+  const locationOptions = useMemo(() => {
+    const seenProvinces = new Set<string>();
+    return locations
+      .filter((location) => {
+        if (seenProvinces.has(location.province_name)) return false;
+        seenProvinces.add(location.province_name);
+        return true;
+      })
+      .map((location) => ({
+        value: location.province_name,
+        label: location.province_name,
+        description: location.station_name,
+      }));
+  }, [locations]);
 
   const handleSwapRoute = () => {
     setRotation((prev) => prev + 180);
@@ -168,31 +625,16 @@ export default function HeroSearchSection({ locations }: HeroSearchSectionProps)
           {/* Input Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-3 items-center pt-4">
             {/* Origin Select */}
-            <div className="lg:col-span-3 relative">
-              <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">
-                Điểm đi
-              </label>
-              <div className="min-h-[68px] flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-surface-container-low focus-within:bg-surface-container-lowest focus-within:ring-2 focus-within:ring-secondary-container transition-all">
-                <span className="material-symbols-outlined text-secondary-container shrink-0">
-                  radio_button_checked
-                </span>
-                <div className="flex-1 min-w-0">
-                  <select
-                    value={origin}
-                    onChange={(e) => setOrigin(e.target.value)}
-                    className="w-full bg-transparent font-display text-[15px] sm:text-base font-bold text-on-surface focus:outline-none truncate cursor-pointer"
-                  >
-                    {locations.map((loc) => (
-                      <option key={`orig-${loc.id}`} value={loc.province_name}>
-                        {loc.province_name}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="block text-[11px] sm:text-xs text-on-surface-variant truncate">
-                    {originStationNote}
-                  </span>
-                </div>
-              </div>
+            <div className="lg:col-span-3">
+              <SearchDropdown
+                label="Điểm đi"
+                icon="radio_button_checked"
+                iconClassName="text-secondary-container"
+                value={origin}
+                description={originStationNote}
+                options={locationOptions}
+                onChange={setOrigin}
+              />
             </div>
 
             {/* Swap Button */}
@@ -201,10 +643,10 @@ export default function HeroSearchSection({ locations }: HeroSearchSectionProps)
                 type="button"
                 onClick={handleSwapRoute}
                 aria-label="Đổi điểm đi và điểm đến"
-                className="w-10 h-10 rounded-full bg-surface-container hover:bg-secondary-fixed transition-colors active:scale-95 flex items-center justify-center text-primary-container shadow-sm cursor-pointer"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-container text-primary-container shadow-sm transition-all duration-200 hover:scale-105 hover:bg-secondary-fixed active:scale-90 motion-reduce:transition-none"
               >
                 <span
-                  className="material-symbols-outlined text-xl transition-transform duration-300"
+                  className="material-symbols-outlined text-xl transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none"
                   style={{ transform: `rotate(${rotation}deg)` }}
                 >
                   swap_horiz
@@ -213,86 +655,44 @@ export default function HeroSearchSection({ locations }: HeroSearchSectionProps)
             </div>
 
             {/* Destination Select */}
-            <div className="lg:col-span-3 relative">
-              <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">
-                Điểm đến
-              </label>
-              <div className="min-h-[68px] flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-surface-container-low focus-within:bg-surface-container-lowest focus-within:ring-2 focus-within:ring-secondary-container transition-all">
-                <span className="material-symbols-outlined text-error shrink-0">
-                  location_on
-                </span>
-                <div className="flex-1 min-w-0">
-                  <select
-                    value={destination}
-                    onChange={(e) => setDestination(e.target.value)}
-                    className="w-full bg-transparent font-display text-[15px] sm:text-base font-bold text-on-surface focus:outline-none truncate cursor-pointer"
-                  >
-                    {locations.map((loc) => (
-                      <option key={`dest-${loc.id}`} value={loc.province_name}>
-                        {loc.province_name}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="block text-[11px] sm:text-xs text-on-surface-variant truncate">
-                    {destStationNote}
-                  </span>
-                </div>
-              </div>
+            <div className="lg:col-span-3">
+              <SearchDropdown
+                label="Điểm đến"
+                icon="location_on"
+                iconClassName="text-error"
+                value={destination}
+                description={destStationNote}
+                options={locationOptions}
+                onChange={setDestination}
+              />
             </div>
 
             {/* Departure Date */}
             <div className="lg:col-span-3">
-              <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">
-                Ngày đi
-              </label>
-              <div className="min-h-[68px] flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-surface-container-low focus-within:bg-surface-container-lowest focus-within:ring-2 focus-within:ring-secondary-container transition-all">
-                <span className="material-symbols-outlined text-secondary shrink-0">
-                  calendar_today
-                </span>
-                <div className="flex-1 min-w-0">
-                  <input
-                    type="date"
-                    min={todayIso}
-                    value={departureDate}
-                    onChange={(e) => {
-                      setDepartureDate(e.target.value);
-                      setActivePreset("");
-                    }}
-                    className="w-full bg-transparent font-display text-[15px] sm:text-base font-bold text-on-surface focus:outline-none cursor-pointer"
-                  />
-                  <span className="block text-xs text-secondary font-medium">
-                    Mở bán vé trực tuyến
-                  </span>
-                </div>
-              </div>
+              <DatePicker
+                value={departureDate}
+                minDate={todayIso}
+                onChange={(date) => {
+                  setDepartureDate(date);
+                  setActivePreset("");
+                }}
+              />
             </div>
 
             {/* Seat Count */}
             <div className="lg:col-span-2">
-              <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">
-                Số lượng ghế
-              </label>
-              <div className="min-h-[68px] flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-surface-container-low">
-                <span className="material-symbols-outlined text-on-surface-variant shrink-0">
-                  group
-                </span>
-                <div className="flex-1 min-w-0">
-                  <select
-                    value={seatCount}
-                    onChange={(e) => setSeatCount(Number(e.target.value))}
-                    className="w-full bg-transparent font-display text-[15px] sm:text-base font-bold text-on-surface focus:outline-none cursor-pointer"
-                  >
-                    {[1, 2, 3, 4, 5].map((num) => (
-                      <option key={num} value={num}>
-                        {num} Hành khách
-                      </option>
-                    ))}
-                  </select>
-                  <span className="block text-xs text-on-surface-variant truncate">
-                    Ghế đơn / Cabin
-                  </span>
-                </div>
-              </div>
+              <SearchDropdown
+                label="Số lượng ghế"
+                icon="group"
+                iconClassName="text-on-surface-variant"
+                value={String(seatCount)}
+                description="Ghế đơn / Cabin"
+                options={[1, 2, 3, 4, 5].map((count) => ({
+                  value: String(count),
+                  label: `${count} Hành khách`,
+                }))}
+                onChange={(value) => setSeatCount(Number(value))}
+              />
             </div>
           </div>
 

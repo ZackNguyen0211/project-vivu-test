@@ -6,7 +6,10 @@ import {
   SeatCell,
   TripSearchResult,
 } from "@/types/booking";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import {
+  createServerSupabaseAuthClient,
+  createServerSupabaseClient,
+} from "@/lib/supabase/server";
 
 function formatVietnamTime(value: string): string {
   return new Intl.DateTimeFormat("en-GB", {
@@ -423,89 +426,76 @@ export function buildSepayVietQrUrl(params: {
  */
 export async function getElectronicTicketByCode(
   bookingCode: string
-): Promise<ElectronicTicketData> {
-  const supabase = await createServerSupabaseClient();
-  if (supabase) {
-    const { data, error } = await supabase
-      .from("bookings")
-      .select(`
-        booking_code, qr_token, status, customer_name, customer_phone, customer_email,
-        total_amount,
-        trips(departure_time, arrival_time, ticket_price,
-          routes(departure_province, destination_province,
-            operators(name)),
-          coaches(license_plate, coach_type)),
-        booking_seats(seat_code),
-        payments(provider, transaction_id, paid_at)
-      `)
-      .eq("booking_code", bookingCode)
-      .maybeSingle();
+): Promise<ElectronicTicketData | null> {
+  const supabase = await createServerSupabaseAuthClient();
+  if (!supabase) return null;
 
-    if (error) console.error("Supabase ticket unavailable:", error.message);
-    if (data) {
-      const trip: any = data.trips;
-      const route: any = trip?.routes;
-      const coach: any = trip?.coaches;
-      const payment: any = Array.isArray(data.payments) ? data.payments[0] : data.payments;
-      return {
-        booking_code: data.booking_code,
-        qr_token: data.qr_token || "",
-        status: data.status as ElectronicTicketData["status"],
-        customer_name: data.customer_name,
-        customer_phone: data.customer_phone,
-        customer_email: data.customer_email,
-        operator_name: route?.operators?.name || "",
-        license_plate: coach?.license_plate || "",
-        coach_type_label: coachLabel(coach?.coach_type),
-        departure_province: route?.departure_province || "",
-        destination_province: route?.destination_province || "",
-        departure_time: trip ? formatVietnamTime(trip.departure_time) : "",
-        arrival_time: trip ? formatVietnamTime(trip.arrival_time) : "",
-        departure_date: trip
-          ? new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(trip.departure_time))
-          : "",
-        pickup_station: "",
-        pickup_address: "",
-        dropoff_station: "",
-        dropoff_address: "",
-        seat_codes: (data.booking_seats || []).map((seat: any) => seat.seat_code),
-        total_amount: Number(data.total_amount),
-        payment_provider: payment?.provider === "MOMO" ? "MOMO" : "SEPAY_VIETQR",
-        transaction_id: payment?.transaction_id || "",
-        paid_at: payment?.paid_at
-          ? new Intl.DateTimeFormat("vi-VN", {
-              timeZone: "Asia/Ho_Chi_Minh",
-              dateStyle: "short",
-              timeStyle: "medium",
-            }).format(new Date(payment.paid_at))
-          : "",
-      };
-    }
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError) {
+    console.error("Supabase ticket authentication failed:", authError.message);
+    throw new Error("Unable to verify the current user for ticket lookup.");
   }
+  if (!user) return null;
 
+  const { data, error } = await supabase
+    .from("bookings")
+    .select(`
+      booking_code, qr_token, status, customer_name, customer_phone, customer_email,
+      total_amount,
+      trips(departure_time, arrival_time, ticket_price,
+        routes(departure_province, destination_province,
+          operators(name)),
+        coaches(license_plate, coach_type)),
+      booking_seats(seat_code),
+      payments(provider, transaction_id, paid_at)
+    `)
+    .eq("booking_code", bookingCode)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Supabase ticket lookup failed:", error.message);
+    throw new Error("Unable to retrieve the requested ticket.");
+  }
+  if (!data) return null;
+
+  const trip: any = data.trips;
+  const route: any = trip?.routes;
+  const coach: any = trip?.coaches;
+  const payment: any = Array.isArray(data.payments) ? data.payments[0] : data.payments;
   return {
-    booking_code: bookingCode || "VVC-261118-8892",
-    qr_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.VVC-261118-8892.SIG",
-    status: "PAID",
-    customer_name: "Nguyễn Hà Thành",
-    customer_phone: "0912 345 678",
-    customer_email: "thanh.nguyen@gmail.com",
-    operator_name: "Phương Trang (FUTA Bus Lines)",
-    license_plate: "51B-298.12",
-    coach_type_label: "Limousine 22 Phòng VIP",
-    departure_province: "TP. Hồ Chí Minh",
-    destination_province: "Đà Lạt (Lâm Đồng)",
-    departure_time: "22:00",
-    arrival_time: "04:30",
-    departure_date: "20/11/2026",
-    pickup_station: "Bến xe Miền Đông Mới (Quầy 12)",
-    pickup_address: "501 Hoàng Hữu Nam, P. Long Bình, TP. Thủ Đức",
-    dropoff_station: "Bến xe Liên tỉnh Đà Lạt",
-    dropoff_address: "01 Tô Hiến Thành, Phường 3, TP. Đà Lạt",
-    seat_codes: ["A03", "A04"],
-    total_amount: 900000,
-    payment_provider: "SEPAY_VIETQR",
-    transaction_id: "FT263229901823",
-    paid_at: "18/11/2026 - 17:15:08",
+    booking_code: data.booking_code,
+    qr_token: data.qr_token || "",
+    status: data.status as ElectronicTicketData["status"],
+    customer_name: data.customer_name,
+    customer_phone: data.customer_phone,
+    customer_email: data.customer_email,
+    operator_name: route?.operators?.name || "",
+    license_plate: coach?.license_plate || "",
+    coach_type_label: coachLabel(coach?.coach_type),
+    departure_province: route?.departure_province || "",
+    destination_province: route?.destination_province || "",
+    departure_time: trip ? formatVietnamTime(trip.departure_time) : "",
+    arrival_time: trip ? formatVietnamTime(trip.arrival_time) : "",
+    departure_date: trip
+      ? new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(trip.departure_time))
+      : "",
+    pickup_station: "",
+    pickup_address: "",
+    dropoff_station: "",
+    dropoff_address: "",
+    seat_codes: (data.booking_seats || []).map((seat: any) => seat.seat_code),
+    total_amount: Number(data.total_amount),
+    payment_provider: payment?.provider === "MOMO" ? "MOMO" : "SEPAY_VIETQR",
+    transaction_id: payment?.transaction_id || "",
+    paid_at: payment?.paid_at
+      ? new Intl.DateTimeFormat("vi-VN", {
+          timeZone: "Asia/Ho_Chi_Minh",
+          dateStyle: "short",
+          timeStyle: "medium",
+        }).format(new Date(payment.paid_at))
+      : "",
   };
 }

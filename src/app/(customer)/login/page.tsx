@@ -1,10 +1,21 @@
 // src/app/(customer)/login/page.tsx
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+
+function subscribeToLocation(onChange: () => void) {
+  window.addEventListener("popstate", onChange);
+  return () => window.removeEventListener("popstate", onChange);
+}
+
+function getRedirectNotice() {
+  return new URLSearchParams(window.location.search).has("redirect")
+    ? "Vui lòng đăng nhập để tiếp tục."
+    : "";
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,12 +28,13 @@ export default function LoginPage() {
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [noticeMessage, setNoticeMessage] = useState(() =>
-    typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).has("redirect")
-      ? "Vui lòng đăng nhập để bắt đầu đặt vé."
-      : ""
+  const [actionNoticeMessage, setActionNoticeMessage] = useState("");
+  const redirectNoticeMessage = useSyncExternalStore(
+    subscribeToLocation,
+    getRedirectNotice,
+    () => ""
   );
+  const noticeMessage = actionNoticeMessage || redirectNoticeMessage;
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -79,11 +91,11 @@ export default function LoginPage() {
         if (error) throw error;
 
         if (data.session) {
-          setNoticeMessage("Đăng ký thành công. Đang vào trang người dùng...");
+          setActionNoticeMessage("Đăng ký thành công. Đang vào trang người dùng...");
           router.push("/");
           router.refresh();
         } else {
-          setNoticeMessage(
+          setActionNoticeMessage(
             "Đăng ký thành công. Vui lòng kiểm tra Email để xác nhận tài khoản."
           );
         }

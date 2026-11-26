@@ -9,3 +9,5 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 <!-- END:nextjs-agent-rules -->
 
 Khi tạo hoặc sửa `src/app/**/page.tsx`, đọc quy tắc kiến trúc tại [.github/instructions/new-page.instructions.md](.github/instructions/new-page.instructions.md).
+
+Để tìm nhanh route, component, service và migration liên quan, xem [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) trước khi quét mã nguồn.

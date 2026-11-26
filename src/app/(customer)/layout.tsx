@@ -11,7 +11,7 @@ export default function CustomerLayout({
   return (
     <div className="min-h-screen flex flex-col bg-surface">
       <CustomerHeader />
-      <main className="flex-1 w-full pt-20">{children}</main>
+      <main className="flex-1 w-full pt-18">{children}</main>
       <CustomerFooter />
     </div>
   );

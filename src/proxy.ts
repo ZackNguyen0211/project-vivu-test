@@ -39,6 +39,7 @@ export async function proxy(request: NextRequest) {
   const isBookingFlow =
     pathname.startsWith("/trips/") ||
     pathname.startsWith("/checkout") ||
+    pathname.startsWith("/bookings/") ||
     pathname.startsWith("/me/");
   const isAdminRoute = pathname.startsWith("/admin/");
   const isOperatorRoute = pathname.startsWith("/operator/");
@@ -77,6 +78,7 @@ export const config = {
   matcher: [
     "/trips/:path*",
     "/checkout",
+    "/bookings/:path*",
     "/me/:path*",
     "/admin/:path*",
     "/operator/:path*",

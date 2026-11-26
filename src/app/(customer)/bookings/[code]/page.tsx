@@ -1,5 +1,6 @@
 // src/app/(customer)/bookings/[code]/page.tsx
 import React from "react";
+import { notFound } from "next/navigation";
 import { getElectronicTicketByCode } from "@/services/booking.service";
 import ElectronicTicketClient from "@/components/ticket/ElectronicTicketClient";
 
@@ -12,6 +13,7 @@ export default async function BookingTicketPage({
 }) {
   const { code } = await params;
   const ticket = await getElectronicTicketByCode(code);
+  if (!ticket) notFound();
 
   return <ElectronicTicketClient ticket={ticket} />;
 }

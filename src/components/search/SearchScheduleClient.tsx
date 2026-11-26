@@ -13,6 +13,13 @@ interface SearchScheduleClientProps {
   dateStr: string;
 }
 
+function formatSearchDate(dateStr: string) {
+  const date = new Date(`${dateStr}T00:00:00`);
+  return Number.isNaN(date.getTime())
+    ? dateStr
+    : new Intl.DateTimeFormat("vi-VN", { dateStyle: "long" }).format(date);
+}
+
 export default function SearchScheduleClient({
   initialTrips,
   fromCity,
@@ -22,6 +29,7 @@ export default function SearchScheduleClient({
   const [selectedCoachTypes, setSelectedCoachTypes] = useState<CoachLayoutType[]>([]);
   const [timeSlot, setTimeSlot] = useState<"ALL" | "MORNING" | "NIGHT">("ALL");
   const [sortBy, setSortBy] = useState<"TIME_ASC" | "PRICE_ASC" | "RATING_DESC">("TIME_ASC");
+  const formattedDate = useMemo(() => formatSearchDate(dateStr), [dateStr]);
 
   const toggleCoachType = (type: CoachLayoutType) => {
     setSelectedCoachTypes((prev) =>
@@ -179,6 +187,43 @@ export default function SearchScheduleClient({
               ))}
             </div>
           </div>
+
+          {filteredTrips.length === 0 && (
+            <div
+              role="status"
+              className="flex flex-col items-center rounded-2xl border border-outline-variant/25 bg-surface-container-lowest px-6 py-12 text-center shadow-xs"
+            >
+              <span className="material-symbols-outlined mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-surface-container-low text-secondary text-3xl">
+                event_busy
+              </span>
+              <h2 className="font-display text-lg font-bold text-on-surface">
+                {initialTrips.length === 0
+                  ? "Không có chuyến xe vào ngày này"
+                  : "Không có chuyến xe phù hợp"}
+              </h2>
+              <p className="mt-2 max-w-lg text-sm leading-relaxed text-on-surface-variant">
+                {initialTrips.length === 0
+                  ? `Hiện chưa có chuyến xe từ ${fromCity} đến ${toCity} vào ngày ${formattedDate}.`
+                  : "Không có chuyến nào khớp với bộ lọc hiện tại. Hãy thử đổi khung giờ hoặc dòng xe."}
+              </p>
+              {initialTrips.length === 0 ? (
+                <p className="mt-1 text-sm text-on-surface-variant">
+                  Vui lòng chọn ngày khác hoặc điều chỉnh điểm đi và điểm đến.
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCoachTypes([]);
+                    setTimeSlot("ALL");
+                  }}
+                  className="mt-5 rounded-lg bg-primary-container px-4 py-2.5 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-container/90"
+                >
+                  Xóa bộ lọc
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Danh sách Trip Cards */}
           {filteredTrips.map((trip) => (
